@@ -1,0 +1,48 @@
+name: test1
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/images/
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/assets-and-images/#resolution-aware.
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/assets-and-images/#from-packages
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list of VideoDetail asset objects, each describing a font file and its
+  # properties. For example:
+  fonts: # <-- Make sure this 'fonts:' is indented under 'flutter:'
+    - family: Aboreto # <-- This is the name you'll use in your Dart code
+      fonts:
+        - asset: assets/fonts/Aboreto-Regular.ttf # <-- Path to your font file
+        # If you have different weights/styles (e.g., Bold, Italic), add them here:
+        # - asset: assets/fonts/Aboreto-Bold.ttf
+        #   weight: 700
+        # - asset: assets/fonts/Aboreto-Italic.ttf
+        #   style: italic
