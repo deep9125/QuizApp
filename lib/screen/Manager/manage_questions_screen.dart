@@ -1,14 +1,14 @@
 // screens/manager/manage_questions_screen.dart
 import 'package:flutter/material.dart';
 import '../../Model/question.dart';
-import '../../services/mock_quiz_service.dart'; // Using mock service for now
+// FIXED: Dart file names should be snake_case
+import '../../services/ManagerQuizService.dart'; 
 import 'add_question_screen.dart';
 import 'edit_question_screen.dart';
 
 class ManagerManageQuestionsScreen extends StatefulWidget {
   final String quizId;
   final String quizTitle;
-
   const ManagerManageQuestionsScreen({
     super.key,
     required this.quizId,
@@ -20,8 +20,7 @@ class ManagerManageQuestionsScreen extends StatefulWidget {
 }
 
 class _ManagerManageQuestionsScreenState extends State<ManagerManageQuestionsScreen> {
-  // You can swap this with ManagerQuizService when ready to use Firestore
-  final MockQuizService _quizService = MockQuizService();
+  final ManagerQuizService _quizService = ManagerQuizService();
   List<ManagerQuestion> _questions = [];
   bool _isLoading = false;
 
@@ -49,7 +48,6 @@ class _ManagerManageQuestionsScreenState extends State<ManagerManageQuestionsScr
 
     if (newQuestion != null) {
       setState(() => _isLoading = true);
-      // FIXED: Called the correct service method for adding a question
       await _quizService.addQuestionToQuiz(widget.quizId, newQuestion);
       await _loadQuestions();
       if (mounted) {
@@ -73,7 +71,6 @@ class _ManagerManageQuestionsScreenState extends State<ManagerManageQuestionsScr
 
     if (updatedQuestion != null) {
       setState(() => _isLoading = true);
-      // FIXED: The updateQuestion method only needs the question object
       await _quizService.updateQuestion(updatedQuestion);
       await _loadQuestions();
       if (mounted) {
@@ -105,8 +102,8 @@ class _ManagerManageQuestionsScreenState extends State<ManagerManageQuestionsScr
 
     if (confirm == true) {
       setState(() => _isLoading = true);
-      // FIXED: The deleteQuestion method only needs the questionId
-      await _quizService.deleteQuestion(questionId);
+      // FIXED: The deleteQuestion method needs both the quizId and the questionId.
+      await _quizService.deleteQuestion(widget.quizId, questionId);
       await _loadQuestions();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,53 +1,59 @@
-// lib/models/admin_question.dart
+// lib/models/question.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Enum for the different types of questions
 enum QuestionType {
   multipleChoice,
   trueFalse,
   fillInBlank,
-  numeric, // Assuming you might have a numeric input type
-  // Add other types as needed
+  numeric,
 }
 
-// Model class for an Admin Question
+// Model class for a Manager Question
 class ManagerQuestion {
-  final String id; // Unique identifier for the question
-  final String quizId; // To link this question to a specific quiz
-  String text; // The question text itself
-  QuestionType type; // The type of question (e.g., multipleChoice, trueFalse)
-  List<String> options; // List of options for multipleChoice, empty for others
-  String correctAnswer; // The correct answer
-  // You could add other fields like points, explanation, difficulty, etc.
+  final String id;
+  final String quizId;
+  String text;
+  QuestionType type;
+  List<String> options;
+  String correctAnswer;
 
   ManagerQuestion({
     required this.id,
     required this.quizId,
     required this.text,
     required this.type,
-    this.options = const [], // Default to an empty list if not provided
+    this.options = const [],
     required this.correctAnswer,
   });
 
-// Optional: Add a factory constructor for JSON serialization/deserialization if needed later
-// factory AdminQuestion.fromJson(Map<String, dynamic> json) { ... }
-// Map<String, dynamic> toJson() { ... }
+  // ADDED: A factory constructor to create a ManagerQuestion from a Firestore document.
+  factory ManagerQuestion.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return ManagerQuestion(
+      id: doc.id,
+      quizId: data['quizId'] ?? '',
+      text: data['text'] ?? '',
+      // Convert the string from Firestore back to an enum
+      type: QuestionType.values.firstWhere(
+        (e) => e.name == data['type'],
+        orElse: () => QuestionType.multipleChoice // Default value if not found
+      ),
+      // Safely convert list from dynamic to String
+      options: List<String>.from(data['options'] ?? []),
+      correctAnswer: data['correctAnswer'] ?? '',
+    );
+  }
 
-// Optional: Add a copyWith method for easier updating of immutable instances if you prefer
-// AdminQuestion copyWith({ ... }) { ... }
-}
-
-// Helper function to get a display string for QuestionType (optional, can also be in UI)
-String getQuestionTypeDisplayString(QuestionType type) {
-  switch (type) {
-    case QuestionType.multipleChoice:
-      return 'Multiple Choice';
-    case QuestionType.trueFalse:
-      return 'True/False';
-    case QuestionType.fillInBlank:
-      return 'Fill in the Blank';
-    case QuestionType.numeric:
-      return 'Numeric Input';
-    default:
-      return 'Unknown Type';
+  // ADDED: A method to convert the ManagerQuestion object to a Map for Firestore.
+  Map<String, dynamic> toFirestoreMap({String? newId}) {
+    return {
+      'id': newId ?? id, // Use the new ID if provided (for adding new questions)
+      'quizId': quizId,
+      'text': text,
+      'type': type.name, // Store the enum as a string
+      'options': options,
+      'correctAnswer': correctAnswer,
+    };
   }
 }

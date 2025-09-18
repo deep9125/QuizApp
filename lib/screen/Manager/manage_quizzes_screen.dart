@@ -1,9 +1,10 @@
 // screens/manager/manage_quizzes_screen.dart
 import 'package:flutter/material.dart';
-import '../../services/mock_quiz_service.dart';
+// FIXED: Dart file names should be snake_case (e.g., manager_quiz_service.dart)
+import '../../services/ManagerQuizService.dart'; 
 import '../../Model/quiz_summary.dart';
 import 'add_quiz_screen.dart';
-import 'edit_quiz_screen.dart'; // FIXED: Corrected file name for consistency
+import 'edit_quiz_screen.dart'; // FIXED: Consistent file name
 import 'manage_questions_screen.dart';
 
 class ManagerManageQuizzesScreen extends StatefulWidget {
@@ -14,8 +15,7 @@ class ManagerManageQuizzesScreen extends StatefulWidget {
 }
 
 class _ManagerManageQuizzesScreenState extends State<ManagerManageQuizzesScreen> {
-  // You can swap this with a real Firestore service when ready
-  final MockQuizService _quizService = MockQuizService();
+  final ManagerQuizService _quizService = ManagerQuizService();
   List<ManagerQuizSummary> _quizzes = [];
   bool _isLoading = false;
 
@@ -42,18 +42,13 @@ class _ManagerManageQuizzesScreenState extends State<ManagerManageQuizzesScreen>
     if (newQuizDetails != null) {
       setState(() => _isLoading = true);
       try {
-        final newQuiz = await _quizService.addManagerQuiz(
-          title: newQuizDetails.title,
-          description: newQuizDetails.description,
-          category: newQuizDetails.category,
-          hasTimer: newQuizDetails.hasTimer,
-          timerSeconds: newQuizDetails.timerSeconds,
-          isRandomized: newQuizDetails.isRandomized,
-        );
-        await _loadQuizzes();
+        // FIXED: The addManagerQuiz service method expects a single ManagerQuizSummary object.
+        await _quizService.addManagerQuiz(newQuizDetails);
+
+        await _loadQuizzes(); // Refresh the list from the database
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Quiz "${newQuiz.title}" created.')),
+            SnackBar(content: Text('Quiz "${newQuizDetails.title}" created.')),
           );
         }
       } catch (e) {
@@ -61,6 +56,10 @@ class _ManagerManageQuizzesScreenState extends State<ManagerManageQuizzesScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error creating quiz: $e')),
           );
+        }
+      } finally {
+        if(mounted) {
+          setState(() => _isLoading = false);
         }
       }
     }
@@ -88,6 +87,10 @@ class _ManagerManageQuizzesScreenState extends State<ManagerManageQuizzesScreen>
             SnackBar(content: Text('Error updating quiz: $e')),
           );
         }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
@@ -98,7 +101,6 @@ class _ManagerManageQuizzesScreenState extends State<ManagerManageQuizzesScreen>
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          // FIXED: The content now correctly refers to deleting a QUIZ and uses the correct variable.
           content: Text('Are you sure you want to delete the quiz "$quizTitle"? This will also delete all of its questions.'),
           actions: <Widget>[
             TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop(false)),

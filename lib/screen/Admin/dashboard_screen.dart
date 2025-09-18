@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/admin_service.dart';
 import '../../services/firebase_auth_service.dart';
+import 'manage_rewards_screen.dart'; // ADDED: Import for the new screen
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -10,7 +11,8 @@ class AdminDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2, // Number of tabs
+      // CHANGED: Number of tabs is now 3
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin Dashboard'),
@@ -22,8 +24,10 @@ class AdminDashboardScreen extends StatelessWidget {
           ],
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.pending_actions), text: 'Manager Requests'),
-              Tab(icon: Icon(Icons.people), text: 'All Users'),
+              Tab(icon: Icon(Icons.pending_actions), text: 'Requests'),
+              Tab(icon: Icon(Icons.people), text: 'Users'),
+              // ADDED: New tab for managing rewards
+              Tab(icon: Icon(Icons.storefront), text: 'Rewards'),
             ],
           ),
         ),
@@ -31,6 +35,8 @@ class AdminDashboardScreen extends StatelessWidget {
           children: [
             ManagerRequestsTab(),
             AllUsersTab(),
+            // ADDED: New tab view for the rewards management screen
+            AdminManageRewardsScreen(),
           ],
         ),
       ),
@@ -59,10 +65,11 @@ class ManagerRequestsTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(8),
           children: snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
             return Card(
               child: ListTile(
-                title: Text(doc['email']),
-                subtitle: Text('UID: ${doc['uid']}'),
+                title: Text(data['email'] ?? 'No email'),
+                subtitle: Text('UID: ${doc.id}'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -108,10 +115,11 @@ class AllUsersTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(8),
           children: snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
             return Card(
               child: ListTile(
-                title: Text(doc['email']),
-                subtitle: Text('Role: ${doc['role']} | Status: ${doc['status']}'),
+                title: Text(data['email'] ?? 'No email'),
+                subtitle: Text('Role: ${data['role']} | Status: ${data['status']}'),
               ),
             );
           }).toList(),
