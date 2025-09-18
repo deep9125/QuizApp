@@ -25,8 +25,8 @@ class AdminManageUsersScreen extends StatefulWidget {
 class _AdminManageUsersScreenState extends State<AdminManageUsersScreen> {
   // MOCK DATA - Replace with actual data fetching later
   List<AdminUser> _users = [
-    AdminUser(id: 'user1', email: 'deep@example.com', role: 'admin', lastLogin: DateTime.now().subtract(const Duration(hours: 1))),
-    AdminUser(id: 'user2', email: 'ronak@example.com', role: 'admin', lastLogin: DateTime.now().subtract(const Duration(days: 1))),
+    AdminUser(id: 'user1', email: 'deep@example.com', role: 'taker', lastLogin: DateTime.now().subtract(const Duration(hours: 1))),
+    AdminUser(id: 'user2', email: 'ronak@example.com', role: 'taker', lastLogin: DateTime.now().subtract(const Duration(days: 1))),
     AdminUser(id: 'user3', email: 'testuser1@example.com', role: 'taker', lastLogin: DateTime.now().subtract(const Duration(minutes: 30))),
     AdminUser(id: 'user4', email: 'another.user@example.com', role: 'taker', lastLogin: DateTime.now().subtract(const Duration(days: 2))),
   ];

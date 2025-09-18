@@ -10,7 +10,7 @@ enum QuestionType {
 }
 
 // Model class for an Admin Question
-class AdminQuestion {
+class ManagerQuestion {
   final String id; // Unique identifier for the question
   final String quizId; // To link this question to a specific quiz
   String text; // The question text itself
@@ -19,7 +19,7 @@ class AdminQuestion {
   String correctAnswer; // The correct answer
   // You could add other fields like points, explanation, difficulty, etc.
 
-  AdminQuestion({
+  ManagerQuestion({
     required this.id,
     required this.quizId,
     required this.text,

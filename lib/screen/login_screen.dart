@@ -1,7 +1,12 @@
 // screens/login_screen.dart
 import 'package:flutter/material.dart';
-import '../services/mock_auth_service.dart'; // Import your auth service
-import './Admin/dashboard_screen.dart';   // Import the Admin Dashboard
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/firebase_auth_service.dart';
+import 'Manager/dashboard_screen.dart';
+import 'User/dashboard_screen.dart';
+import 'Admin/dashboard_screen.dart';
+import 'Manager/pending_approval_screen.dart'; // FIXED: Added missing import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,24 +17,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  // Initialize controllers here
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
-  final MockAuthService _authService = MockAuthService();
+  final FirebaseAuthService _authService = FirebaseAuthService();
 
   bool _isLoading = false;
   String? _errorMessage;
-
-  // --- ADD initState to set default values ---
-  @override
-  void initState() {
-    super.initState();
-   _emailController.text = 'admin@example.com';
-    _passwordController.text = 'password123';
-  }
-  // --- End of initState ---
+  bool _isLoginMode = true;
+  String _selectedRole = 'User';
 
   @override
   void dispose() {
@@ -38,41 +33,90 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _loginUser() async {
-    // Hide keyboard when login is attempted
+  Future<void> _submitForm() async {
     FocusScope.of(context).unfocus();
-
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
       });
 
-      // Use the values from the controllers
-      final user = await _authService.login(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-
-      // Check if the widget is still mounted before calling setState
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (user != null && _authService.isAdmin) {
-        // Navigate to Admin Dashboard on successful admin login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => AdminDashboardScreen()), // AdminDashboardScreen might not be const
+      User? user;
+      if (_isLoginMode) {
+        user = await _authService.loginWithEmailPassword(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
         );
+        if (user != null) {
+          await _navigateToDashboardByRole(user);
+        }
       } else {
-        if (!mounted) return;
+        user = await _authService.registerWithEmailPassword(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+          _selectedRole,
+        );
+        if (user != null) {
+          // FIXED: Pass both the role and the initial status after registration
+          String initialStatus = _selectedRole == 'Manager' ? 'pending' : 'approved';
+          _navigateDirectlyToDashboard(_selectedRole, initialStatus);
+        }
+      }
+
+      if (mounted) {
+         setState(() => _isLoading = false);
+      }
+
+      if (user == null && mounted) {
         setState(() {
-          _errorMessage = 'Invalid email or password, or not an admin.';
+          _errorMessage = _isLoginMode
+              ? 'Login failed. Please check your credentials.'
+              : 'Registration failed. The email might already be in use.';
         });
       }
+    }
+  }
+
+  void _toggleMode() {
+    setState(() {
+      _isLoginMode = !_isLoginMode;
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _navigateToDashboardByRole(User user) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final role = data['role'] ?? 'User'; // Default to User if role is null
+        final status = data['status'] ?? 'pending'; // Default to pending if status is null
+        _navigateDirectlyToDashboard(role, status);
+      } else {
+        if(mounted) setState(() => _errorMessage = "User details not found.");
+        FirebaseAuthService().signOut();
+      }
+    } catch (e) {
+      if(mounted) setState(() => _errorMessage = "Could not verify user role.");
+    }
+  }
+
+  void _navigateDirectlyToDashboard(String role, String status) {
+    // Ensure navigation happens only if the widget is still mounted
+    if (!mounted) return;
+
+    if (role == 'admin') {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+    } else if (role == 'Manager' && status == 'approved') {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) =>  ManagerDashboardScreen()));
+    } else if (role == 'Manager' && (status == 'pending' || status == 'rejected')) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PendingApprovalScreen()));
+    } else if (role == 'User' && status == 'approved') {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) =>  UserDashboardScreen()));
+    } else {
+      FirebaseAuthService().signOut();
+      // Setting state here might not be visible if sign-out triggers rebuild
+      // The login screen will reappear with no error message, which is fine.
     }
   }
 
@@ -80,9 +124,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Login'),
+        title: Text(_isLoginMode ? 'Login' : 'Sign Up'),
         centerTitle: true,
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -94,91 +137,72 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Text(
-                  'Welcome, Admin!',
+                  _isLoginMode ? 'Welcome Back!' : 'Create an Account',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 32.0), // Increased spacing
+                const SizedBox(height: 32.0),
                 TextFormField(
-                  controller: _emailController, // Controller is already initialized
-                  decoration: InputDecoration(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
                     labelText: 'Email',
-
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0), // Softer corners
-                    ),
-                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [AutofillHints.email], // For autofill
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    // Basic email validation: contains '@' and '.'
-                    if (!RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(value)) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
-                  },
+                  validator: (v) => (v == null || !v.contains('@')) ? 'Please enter a valid email' : null,
                 ),
                 const SizedBox(height: 16.0),
                 TextFormField(
-                  controller: _passwordController, // Controller is already initialized
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    // hintText: 'password123', // Hint text is less necessary if pre-filled
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    // TODO: Add a suffix icon to toggle password visibility
-                  ),
+                  controller: _passwordController,
                   obscureText: true,
-                  autofillHints: const [AutofillHints.password], // For autofill
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    return null;
-                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                  validator: (v) => (v == null || v.length < 6) ? 'Password must be at least 6 characters' : null,
                 ),
+                if (!_isLoginMode) ...[
+                  const SizedBox(height: 16.0),
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: InputDecoration(
+                      labelText: 'Select Role',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+                      prefixIcon: const Icon(Icons.person_outline),
+                    ),
+                    items: ['User', 'Manager'].map((String role) {
+                      return DropdownMenuItem<String>(value: role, child: Text(role));
+                    }).toList(),
+                    onChanged: (newValue) => setState(() => _selectedRole = newValue!),
+                  ),
+                ],
                 const SizedBox(height: 24.0),
                 if (_errorMessage != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0), // Increased padding
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500),
-                      textAlign: TextAlign.center,
-                    ),
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
                   ),
                 _isLoading
-                    ? const Center(child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12.0), // Add padding around indicator
-                  child: CircularProgressIndicator(),
-                ))
+                    ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton.icon(
-                  icon: const Icon(Icons.login_rounded), // Slightly different icon
-                  label: const Text('Login'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14.0), // Increased padding
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    backgroundColor: Theme.of(context).colorScheme.primary, // Themed button
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0), // Match text field borders
-                    ),
+                        icon: Icon(_isLoginMode ? Icons.login_rounded : Icons.person_add),
+                        label: Text(_isLoginMode ? 'Login' : 'Sign Up'),
+                        onPressed: _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14.0),
+                          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                        ),
+                      ),
+                TextButton(
+                  onPressed: _toggleMode,
+                  child: Text(
+                    _isLoginMode
+                        ? 'Don\'t have an account? Sign Up'
+                        : 'Already have an account? Login',
                   ),
-                  onPressed: _loginUser,
                 ),
-                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -187,4 +211,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

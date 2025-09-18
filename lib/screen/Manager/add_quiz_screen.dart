@@ -1,33 +1,25 @@
 import 'package:flutter/material.dart';
 
-// 1. IMPORT YOUR CENTRALIZED AdminQuizSummary MODEL
-// Adjust path if your model is elsewhere (e.g., ../../models/admin_quiz_summary.dart)
-import '../../Model/quiz_summary.dart'; // Assuming AdminQuizSummary is here and does NOT have timerSeconds
+// 1. IMPORT YOUR CENTRALIZED ManagerQuizSummary MODEL
+// Make sure the class inside this file is named ManagerQuizSummary
+import '../../Model/quiz_summary.dart';
 
-// 2. IMPORT THE SCREEN YOU NAVIGATE TO
-import './manage_questions_screen.dart'; // Make sure this is AdminManageQuestionsScreen
-
-class EditQuizFormScreen extends StatefulWidget {
-  final AdminQuizSummary quizToEdit;
-
-  const EditQuizFormScreen({
-    super.key,
-    required this.quizToEdit,
-  });
+class AddQuizScreen extends StatefulWidget {
+  const AddQuizScreen({super.key});
 
   @override
-  State<EditQuizFormScreen> createState() => _EditQuizFormScreenState();
+  State<AddQuizScreen> createState() => _AddQuizScreenState();
 }
 
-class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
+class _AddQuizScreenState extends State<AddQuizScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
-  late TextEditingController _customCategoryController;
-  late TextEditingController _timerDurationController; // Renamed for clarity, as it's UI state
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _customCategoryController = TextEditingController();
+  final TextEditingController _timerDurationController = TextEditingController();
 
-  late bool _hasTimer; // This is from the model
-  late bool _isRandomized; // This is from the model
+  bool _hasTimer = false;
+  bool _isRandomized = false;
 
   final List<String> _predefinedCategories = [
     'Programming',
@@ -42,25 +34,7 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
   @override
   void initState() {
     super.initState();
-    final quiz = widget.quizToEdit;
-
-    _titleController = TextEditingController(text: quiz.title);
-    _descriptionController = TextEditingController(); // Assuming no description in model for now
-    _customCategoryController = TextEditingController();
-
-    _hasTimer = quiz.hasTimer;
-    _isRandomized = quiz.isRandomized;
-    _selectedCategory = quiz.category;
-
-    // Initialize timer duration controller, e.g., with a default if timer is enabled
-    // This value is purely for the form if not stored in AdminQuizSummary
-    _timerDurationController = TextEditingController(text: _hasTimer ? '60' : '');
-
-
-    if (!_predefinedCategories.contains(quiz.category)) {
-      _selectedCategory = 'Custom';
-      _customCategoryController.text = quiz.category;
-    }
+    _selectedCategory = _predefinedCategories.first;
   }
 
   @override
@@ -72,7 +46,7 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
     super.dispose();
   }
 
-  void _updateQuiz() {
+  void _createQuiz() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
@@ -80,58 +54,45 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
           ? _customCategoryController.text.trim()
           : _selectedCategory!;
 
-      // If _hasTimer is true, you might still want to validate _timerDurationController
-      // even if not saving the duration to the model, to ensure UX is good.
+      int? timerSeconds;
       if (_hasTimer) {
-        final int? seconds = int.tryParse(_timerDurationController.text.trim());
-        if (seconds == null || seconds <= 0) {
+        final String durationText = _timerDurationController.text.trim();
+        final int? parsedSeconds = int.tryParse(durationText);
+        if (parsedSeconds == null || parsedSeconds <= 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Invalid timer duration. Please enter a positive number.')),
           );
-          return; // Prevent saving if timer is enabled but duration is invalid
+          return;
         }
+        timerSeconds = parsedSeconds;
       }
 
-      // Create an updated quiz object
-      // Note: timerSeconds is no longer part of AdminQuizSummary here
-      final updatedQuiz = AdminQuizSummary(
-        id: widget.quizToEdit.id,
+      // CHANGED: Create the new quiz object using the ManagerQuizSummary model
+      final newQuiz = ManagerQuizSummary(
+        id: 'new_quiz_${DateTime.now().millisecondsSinceEpoch}', // Mock ID
         title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(), // Assuming model supports this
         category: category,
-        questionCount: widget.quizToEdit.questionCount,
-        hasTimer: _hasTimer, // Only this boolean is saved to the model regarding timer
+        questionCount: 0,
+        hasTimer: _hasTimer,
         isRandomized: _isRandomized,
+        timerSeconds: timerSeconds, // Pass the parsed seconds
       );
 
-      Navigator.of(context).pop(updatedQuiz);
+      Navigator.of(context).pop(newQuiz);
     }
-  }
-
-  void _navigateToManageQuestions() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AdminManageQuestionsScreen(
-          quizId: widget.quizToEdit.id,
-          quizTitle: _titleController.text.trim().isNotEmpty
-              ? _titleController.text.trim()
-              : widget.quizToEdit.title,
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit Quiz: ${widget.quizToEdit.title}'),
-        backgroundColor: Colors.blueGrey[700],
+        title: const Text('Create New Quiz'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save_as_outlined),
-            tooltip: 'Update Quiz',
-            onPressed: _updateQuiz,
+            icon: const Icon(Icons.save_outlined),
+            tooltip: 'Create Quiz',
+            onPressed: _createQuiz,
           ),
         ],
       ),
@@ -147,7 +108,7 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Quiz Title*',
                   border: OutlineInputBorder(),
-                  hintText: 'Enter the title of the quiz',
+                  hintText: 'e.g., Flutter Intermediate Concepts',
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -162,7 +123,7 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Quiz Description (Optional)',
                   border: OutlineInputBorder(),
-                  hintText: 'Enter a brief description for the quiz',
+                  hintText: 'A brief summary of what this quiz covers.',
                 ),
                 maxLines: 3,
               ),
@@ -212,6 +173,7 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
               const SizedBox(height: 20),
               SwitchListTile(
                 title: const Text('Enable Timer?'),
+                subtitle: Text(_hasTimer ? 'Timer is ON' : 'Timer is OFF'),
                 value: _hasTimer,
                 onChanged: (bool value) {
                   setState(() {
@@ -219,18 +181,17 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
                     if (!value) {
                       _timerDurationController.clear();
                     } else if (_timerDurationController.text.isEmpty) {
-                      _timerDurationController.text = '60'; // Default if enabling
+                      _timerDurationController.text = '60'; // Default
                     }
                   });
                 },
                 secondary: const Icon(Icons.timer_outlined),
-                tileColor: Colors.blueGrey[50],
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               if (_hasTimer) ...[
                 const SizedBox(height: 12),
                 TextFormField(
-                  controller: _timerDurationController, // Use the renamed controller
+                  controller: _timerDurationController,
                   decoration: const InputDecoration(
                     labelText: 'Timer Duration (seconds)*',
                     border: OutlineInputBorder(),
@@ -239,11 +200,9 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
-                    // This validation is still useful for good UX,
-                    // even if the value isn't directly saved to AdminQuizSummary
                     if (_hasTimer) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a duration.';
+                        return 'Please enter timer duration.';
                       }
                       final int? seconds = int.tryParse(value.trim());
                       if (seconds == null) {
@@ -260,6 +219,9 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
               const SizedBox(height: 12),
               SwitchListTile(
                 title: const Text('Randomize Question Order?'),
+                subtitle: Text(_isRandomized
+                    ? 'Questions will be randomized'
+                    : 'Questions appear in order'),
                 value: _isRandomized,
                 onChanged: (bool value) {
                   setState(() {
@@ -267,38 +229,18 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
                   });
                 },
                 secondary: const Icon(Icons.shuffle),
-                tileColor: Colors.blueGrey[50],
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              const SizedBox(height: 24),
-              const Divider(thickness: 1),
-              const SizedBox(height: 16),
+              const SizedBox(height: 30),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  textStyle: const TextStyle(fontSize: 16),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                icon: const Icon(Icons.list_alt_outlined),
-                label: const Text('Manage Questions for this Quiz'),
-                onPressed: _navigateToManageQuestions,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey[600],
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  minimumSize: const Size(double.infinity, 50),
                 ),
-                icon: const Icon(Icons.save_as_outlined),
-                label: const Text('UPDATE QUIZ DETAILS'),
-                onPressed: _updateQuiz,
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('CREATE QUIZ'),
+                onPressed: _createQuiz,
               ),
-              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -306,4 +248,3 @@ class _EditQuizFormScreenState extends State<EditQuizFormScreen> {
     );
   }
 }
-

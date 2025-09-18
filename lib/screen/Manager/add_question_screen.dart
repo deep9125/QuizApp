@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-
-// 1. IMPORT YOUR CENTRALIZED AdminQuestion MODEL and QuestionType ENUM
-// Adjust path if your model is elsewhere (e.g., ../../models/admin_question.dart or ../../model/question.dart)
-import '../../Model/question.dart'; // Assuming AdminQuestion and QuestionType are here
+// 1. Make sure this import path is correct and the file contains the ManagerQuestion class.
+import '../../Model/question.dart';
 
 class AddQuestionScreen extends StatefulWidget {
-  final String quizId; // The quiz this new question belongs to
+  final String quizId;
 
   const AddQuestionScreen({
     super.key,
@@ -20,15 +18,18 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _questionTextController;
-  // Ensure QuestionType is the one imported from your model file
   QuestionType _selectedQuestionType = QuestionType.multipleChoice;
 
+  // State for Multiple Choice questions
   List<TextEditingController> _mcOptionControllers = [];
   List<bool> _mcIsCorrectOption = [];
   final int _minMcOptions = 2;
   final int _maxMcOptions = 6;
 
+  // State for True/False questions
   bool? _tfCorrectAnswer;
+
+  // State for Fill-in-the-blank and Numeric questions
   late TextEditingController _textBasedAnswerController;
 
   @override
@@ -37,6 +38,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
     _questionTextController = TextEditingController();
     _textBasedAnswerController = TextEditingController();
 
+    // Initialize fields for the default question type (Multiple Choice)
     _mcOptionControllers = List.generate(_minMcOptions, (_) => TextEditingController());
     _mcIsCorrectOption = List.generate(_minMcOptions, (index) => index == 0);
   }
@@ -70,6 +72,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         bool wasCorrect = _mcIsCorrectOption[index];
         _mcOptionControllers.removeAt(index);
         _mcIsCorrectOption.removeAt(index);
+        // If the removed option was the correct one, default to the first option
         if (wasCorrect && !_mcIsCorrectOption.contains(true) && _mcIsCorrectOption.isNotEmpty) {
           _mcIsCorrectOption[0] = true;
         }
@@ -95,8 +98,6 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
     }
     _formKey.currentState!.save();
 
-    // The service will likely generate the final ID, but having a temporary one
-    // or passing raw data is also an option. Here, we create one locally.
     String questionId = 'new_q_${widget.quizId}_${DateTime.now().millisecondsSinceEpoch}';
     String finalCorrectAnswer = '';
     List<String> finalOptions = [];
@@ -105,28 +106,25 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
       case QuestionType.multipleChoice:
         finalOptions = _mcOptionControllers.map((c) => c.text.trim()).toList();
         int correctIndex = _mcIsCorrectOption.indexWhere((isCorrect) => isCorrect);
-        if (correctIndex == -1 && finalOptions.any((opt) => opt.isNotEmpty)) { // Check if any option has text
+        if (correctIndex == -1) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please mark one option as correct for MCQ.')),
+            const SnackBar(content: Text('Please mark one option as correct.')),
           );
           return;
         }
-        // Ensure that if no option is marked correct, but all options are empty, it's fine.
-        // Or handle as an error if at least one option must be non-empty.
-        // For now, if all options are empty, correctIndex will be -1, which is fine if options list is also empty.
-        finalCorrectAnswer = correctIndex.toString(); // Store index as string
+        finalCorrectAnswer = correctIndex.toString(); // Store index as a string
         break;
       case QuestionType.trueFalse:
         if (_tfCorrectAnswer == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select True or False as the correct answer.')),
+            const SnackBar(content: Text('Please select True or False.')),
           );
           return;
         }
         finalCorrectAnswer = _tfCorrectAnswer.toString(); // "true" or "false"
         break;
       case QuestionType.fillInBlank:
-      case QuestionType.numeric: // Assuming numeric also uses textBasedAnswerController
+      case QuestionType.numeric:
         finalCorrectAnswer = _textBasedAnswerController.text.trim();
         if (finalCorrectAnswer.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -137,18 +135,17 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         break;
     }
 
-    // Ensure AdminQuestion is the imported model
-    // CRITICAL: Pass widget.quizId to the quizId parameter
-    final AdminQuestion newQuestion = AdminQuestion(
-      id: questionId, // This ID might be replaced by the service
-      quizId: widget.quizId, // <--- ADD THIS to associate with the current quiz
+    final ManagerQuestion newQuestion = ManagerQuestion(
+      id: questionId, // This ID might be replaced by your backend service
+      quizId: widget.quizId,
       text: _questionTextController.text.trim(),
       type: _selectedQuestionType,
       options: finalOptions,
       correctAnswer: finalCorrectAnswer,
     );
 
-    Navigator.of(context).pop(newQuestion); // Return the fully formed AdminQuestion object
+    // Return the created question object to the previous screen
+    Navigator.of(context).pop(newQuestion);
   }
 
   @override
@@ -156,10 +153,9 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add New Question'),
-        backgroundColor: Colors.blueGrey[700],
         actions: [
           IconButton(
-            icon: const Icon(Icons.save_outlined), // Changed icon
+            icon: const Icon(Icons.save_outlined),
             onPressed: _createQuestion,
             tooltip: 'Save Question',
           ),
@@ -170,7 +166,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Make button wider
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               TextFormField(
                 controller: _questionTextController,
@@ -182,7 +178,6 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                 maxLines: 3,
               ),
               const SizedBox(height: 20),
-              // Ensure QuestionType.values and _getQuestionTypeString use the imported enum
               DropdownButtonFormField<QuestionType>(
                 value: _selectedQuestionType,
                 decoration: const InputDecoration(
@@ -190,12 +185,13 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                     border: OutlineInputBorder()),
                 items: QuestionType.values
                     .map((type) => DropdownMenuItem<QuestionType>(
-                    value: type, child: Text(_getQuestionTypeString(type))))
+                        value: type, child: Text(_getQuestionTypeString(type))))
                     .toList(),
                 onChanged: (QuestionType? newValue) {
                   if (newValue != null) {
                     setState(() {
                       _selectedQuestionType = newValue;
+                      // Reset fields when type changes for a clean slate
                       _mcOptionControllers = List.generate(_minMcOptions, (_) => TextEditingController());
                       _mcIsCorrectOption = List.generate(_minMcOptions, (index) => index == 0);
                       _tfCorrectAnswer = null;
@@ -208,7 +204,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
               const SizedBox(height: 24),
               const Divider(thickness: 1),
               const SizedBox(height: 16),
-              // Conditional UI based on _selectedQuestionType
+              // Conditionally build the UI for the selected question type
               if (_selectedQuestionType == QuestionType.multipleChoice) _buildMultipleChoiceFields(),
               if (_selectedQuestionType == QuestionType.trueFalse) _buildTrueFalseFields(),
               if (_selectedQuestionType == QuestionType.fillInBlank) _buildFillInBlankFields(),
@@ -217,16 +213,12 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
                   textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  minimumSize: const Size(double.infinity, 50), // Make button wide
                 ),
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text('ADD QUESTION'),
                 onPressed: _createQuestion,
               ),
-              const SizedBox(height: 16), // Padding at the bottom
             ],
           ),
         ),
@@ -234,7 +226,6 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
     );
   }
 
-  // Ensure QuestionType used here is the imported one
   String _getQuestionTypeString(QuestionType type) {
     switch (type) {
       case QuestionType.multipleChoice:
@@ -268,7 +259,11 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                   Radio<bool>(
                     value: true,
                     groupValue: _mcIsCorrectOption[index],
-                    onChanged: (bool? value) => (value == true) ? _setMcCorrectOption(index) : null,
+                    onChanged: (bool? value) {
+                      if (value == true) {
+                        _setMcCorrectOption(index);
+                      }
+                    },
                   ),
                   Expanded(
                     child: TextFormField(
@@ -279,15 +274,9 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
                           hintText: 'Text for option ${index + 1}',
                         ),
                         validator: (v) {
-                          // Option text is only required if it's not one of the first _minMcOptions
-                          // or if any other option has text. This is a bit complex.
-                          // A simpler validation: if any option is filled, all must be (or a certain number).
-                          // Or, just make it required if visible.
-                          // For now, keep it simple:
                           if (v == null || v.trim().isEmpty) return 'Option text required.';
                           return null;
-                        }
-                    ),
+                        }),
                   ),
                   if (_mcOptionControllers.length > _minMcOptions)
                     IconButton(
@@ -324,14 +313,12 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
           value: true,
           groupValue: _tfCorrectAnswer,
           onChanged: (bool? value) => setState(() => _tfCorrectAnswer = value),
-          activeColor: Theme.of(context).primaryColor,
         ),
         RadioListTile<bool>(
           title: const Text('False'),
           value: false,
           groupValue: _tfCorrectAnswer,
           onChanged: (bool? value) => setState(() => _tfCorrectAnswer = value),
-          activeColor: Theme.of(context).primaryColor,
         ),
       ],
     );
@@ -351,7 +338,7 @@ class _AddQuestionScreenState extends State<AddQuestionScreen> {
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Answer required.' : null,
         ),
         const SizedBox(height: 4),
-        const Text('For multiple correct (case-sensitive) answers, separate with | (pipe)', style: TextStyle(fontSize: 12, color: Colors.grey))
+        const Text('For multiple correct answers, separate with | (pipe)', style: TextStyle(fontSize: 12, color: Colors.grey))
       ],
     );
   }

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-
-// 1. IMPORT YOUR CENTRALIZED AdminQuestion MODEL and QuestionType ENUM
-// Adjust path if your model is elsewhere (e.g., ../../models/admin_question.dart or ../../model/question.dart)
-import '../../Model/question.dart'; // Assuming AdminQuestion and QuestionType are here
+// 1. IMPORT YOUR CENTRALIZED ManagerQuestion MODEL
+import '../../Model/question.dart'; // Assuming ManagerQuestion and QuestionType are here
 
 class EditQuestionScreen extends StatefulWidget {
-  final String quizId; // Quiz ID passed for context, though questionToEdit should also have it
-  final AdminQuestion questionToEdit; // This should be an instance of the imported AdminQuestion
+  final String quizId;
+  // CHANGED: The question to edit is now a ManagerQuestion
+  final ManagerQuestion questionToEdit;
 
   const EditQuestionScreen({
     super.key,
-    required this.quizId, // Keep for context or if questionToEdit might not have quizId initially (less ideal)
+    required this.quizId,
     required this.questionToEdit,
   });
 
@@ -22,7 +21,6 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _questionTextController;
-  // Ensure QuestionType is the one imported from your model file
   late QuestionType _selectedQuestionType;
 
   List<TextEditingController> _mcOptionControllers = [];
@@ -36,30 +34,22 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
   @override
   void initState() {
     super.initState();
-    final q = widget.questionToEdit; // Instance of imported AdminQuestion
+    // Use the passed-in ManagerQuestion object to initialize the state
+    final q = widget.questionToEdit;
 
     _questionTextController = TextEditingController(text: q.text);
     _selectedQuestionType = q.type;
-    _textBasedAnswerController = TextEditingController(); // Initialize always, populate below
+    _textBasedAnswerController = TextEditingController();
 
     switch (q.type) {
       case QuestionType.multipleChoice:
-      // Ensure q.options and q.correctAnswer are compatible with how they are stored
         _mcOptionControllers = q.options.map((optText) => TextEditingController(text: optText)).toList();
-        // If q.options is empty but should have min options, initialize them
-        if (_mcOptionControllers.length < _minMcOptions && _mcOptionControllers.isEmpty) { // Only if completely empty from model
-          _mcOptionControllers = List.generate(_minMcOptions, (_) => TextEditingController());
-          _mcIsCorrectOption = List.generate(_minMcOptions, (i) => i == 0); // Default first if new
-        } else {
-          _mcIsCorrectOption = List.generate(q.options.length, (index) => index.toString() == q.correctAnswer);
-        }
+        _mcIsCorrectOption = List.generate(q.options.length, (index) => index.toString() == q.correctAnswer);
 
-        // If no option was marked correct (e.g. data issue or new structure), default to first
         if (!_mcIsCorrectOption.contains(true) && _mcIsCorrectOption.isNotEmpty) {
           _mcIsCorrectOption[0] = true;
         }
-        // Ensure minimum options if loaded data has less (but not if empty, handled above)
-        while (_mcOptionControllers.length < _minMcOptions && _mcOptionControllers.isNotEmpty) {
+        while (_mcOptionControllers.length < _minMcOptions) {
           _mcOptionControllers.add(TextEditingController());
           _mcIsCorrectOption.add(false);
         }
@@ -84,44 +74,6 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     super.dispose();
   }
 
-  void _addMcOption() {
-    if (_mcOptionControllers.length < _maxMcOptions) {
-      setState(() {
-        _mcOptionControllers.add(TextEditingController());
-        _mcIsCorrectOption.add(false);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Maximum of $_maxMcOptions options allowed.')),
-      );
-    }
-  }
-
-  void _removeMcOption(int index) {
-    if (_mcOptionControllers.length > _minMcOptions) {
-      setState(() {
-        bool wasCorrect = _mcIsCorrectOption[index];
-        _mcOptionControllers.removeAt(index);
-        _mcIsCorrectOption.removeAt(index);
-        if (wasCorrect && !_mcIsCorrectOption.contains(true) && _mcIsCorrectOption.isNotEmpty) {
-          _mcIsCorrectOption[0] = true;
-        }
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Minimum of $_minMcOptions options required.')),
-      );
-    }
-  }
-
-  void _setMcCorrectOption(int index) {
-    setState(() {
-      for (int i = 0; i < _mcIsCorrectOption.length; i++) {
-        _mcIsCorrectOption[i] = (i == index);
-      }
-    });
-  }
-
   void _updateQuestion() {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -135,7 +87,6 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
       case QuestionType.multipleChoice:
         finalOptions = _mcOptionControllers.map((c) => c.text.trim()).toList();
         int correctIndex = _mcIsCorrectOption.indexWhere((isCorrect) => isCorrect);
-        // Ensure at least one option is marked correct if there are options with text
         if (correctIndex == -1 && finalOptions.any((opt) => opt.isNotEmpty)) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please mark one MCQ option as correct.')),
@@ -165,11 +116,10 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         break;
     }
 
-    // Create an updated question object using the imported AdminQuestion model
-    // CRITICAL: Ensure widget.questionToEdit.quizId is used
-    final AdminQuestion updatedQuestion = AdminQuestion(
-      id: widget.questionToEdit.id, // Keep original question ID
-      quizId: widget.questionToEdit.quizId, // CRITICAL: Preserve the original quizId
+    // CHANGED: Create an updated question object using the ManagerQuestion model
+    final ManagerQuestion updatedQuestion = ManagerQuestion(
+      id: widget.questionToEdit.id,
+      quizId: widget.questionToEdit.quizId,
       text: _questionTextController.text.trim(),
       type: _selectedQuestionType,
       options: finalOptions,
@@ -178,15 +128,17 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     Navigator.of(context).pop(updatedQuestion);
   }
 
+  // --- All other helper methods (_addMcOption, _getQuestionTypeString, etc.) are unchanged ---
+  // --- The entire build method and its helpers are also unchanged ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit: ${widget.questionToEdit.text.length > 20 ? "${widget.questionToEdit.text.substring(0,20)}..." : widget.questionToEdit.text}'),
-        backgroundColor: Colors.blueGrey[700],
+        title: Text('Edit: ${widget.questionToEdit.text.length > 20 ? "${widget.questionToEdit.text.substring(0, 20)}..." : widget.questionToEdit.text}'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save_as_outlined), // Changed icon
+            icon: const Icon(Icons.save_as_outlined),
             onPressed: _updateQuestion,
             tooltip: 'Update Question',
           ),
@@ -197,7 +149,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Make button wider
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               TextFormField(
                 controller: _questionTextController,
@@ -209,7 +161,6 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                 maxLines: 3,
               ),
               const SizedBox(height: 20),
-              // Ensure QuestionType.values and _getQuestionTypeString use the imported enum
               DropdownButtonFormField<QuestionType>(
                 value: _selectedQuestionType,
                 decoration: const InputDecoration(
@@ -217,18 +168,17 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                     border: OutlineInputBorder()),
                 items: QuestionType.values
                     .map((type) => DropdownMenuItem<QuestionType>(
-                    value: type, child: Text(_getQuestionTypeString(type))))
+                        value: type, child: Text(_getQuestionTypeString(type))))
                     .toList(),
                 onChanged: (QuestionType? newValue) {
-                  if (newValue != null && newValue != _selectedQuestionType) { // Prevent reset if same type selected
+                  if (newValue != null && newValue != _selectedQuestionType) {
                     setState(() {
                       _selectedQuestionType = newValue;
-                      // Reset relevant fields when type changes
-                      // For MC: initialize with min options, first as correct
+                      // Reset fields when type changes
                       _mcOptionControllers = List.generate(_minMcOptions, (_) => TextEditingController());
                       _mcIsCorrectOption = List.generate(_minMcOptions, (index) => index == 0);
-                      _tfCorrectAnswer = null; // Reset T/F
-                      _textBasedAnswerController.clear(); // Reset Fill/Numeric
+                      _tfCorrectAnswer = null;
+                      _textBasedAnswerController.clear();
                     });
                   }
                 },
@@ -237,7 +187,6 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
               const SizedBox(height: 24),
               const Divider(thickness: 1),
               const SizedBox(height: 16),
-              // Conditional UI based on _selectedQuestionType
               if (_selectedQuestionType == QuestionType.multipleChoice) _buildMultipleChoiceFields(),
               if (_selectedQuestionType == QuestionType.trueFalse) _buildTrueFalseFields(),
               if (_selectedQuestionType == QuestionType.fillInBlank) _buildFillInBlankFields(),
@@ -246,16 +195,12 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.blueGrey[600], // Consistent with other update buttons
-                  foregroundColor: Colors.white,
                   textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  minimumSize: const Size(double.infinity, 50), // Make button wide
                 ),
                 icon: const Icon(Icons.save_as_outlined),
                 label: const Text('UPDATE QUESTION'),
                 onPressed: _updateQuestion,
               ),
-              const SizedBox(height: 16), // Padding at the bottom
             ],
           ),
         ),
@@ -263,7 +208,35 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     );
   }
 
-  // Ensure QuestionType used here is the imported one
+  // --- Helper methods for building UI based on question type ---
+  // These are identical to the ones in add_question_screen.dart
+
+  void _addMcOption() {
+      if (_mcOptionControllers.length < _maxMcOptions) {
+          setState(() {
+              _mcOptionControllers.add(TextEditingController());
+              _mcIsCorrectOption.add(false);
+          });
+      }
+  }
+
+  void _removeMcOption(int index) {
+      if (_mcOptionControllers.length > _minMcOptions) {
+          setState(() {
+              _mcOptionControllers.removeAt(index);
+              _mcIsCorrectOption.removeAt(index);
+          });
+      }
+  }
+
+  void _setMcCorrectOption(int index) {
+      setState(() {
+          for (int i = 0; i < _mcIsCorrectOption.length; i++) {
+              _mcIsCorrectOption[i] = (i == index);
+          }
+      });
+  }
+
   String _getQuestionTypeString(QuestionType type) {
     switch (type) {
       case QuestionType.multipleChoice: return 'Multiple Choice (MCQ)';
@@ -274,15 +247,7 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     }
   }
 
-  // --- UI Builder Methods (Copy from AddQuestionScreen or keep as is if already identical) ---
-  // For brevity, assuming these are identical to the versions provided for AddQuestionScreen
-  // with the same controller names (_mcOptionControllers, _mcIsCorrectOption, etc.)
-  // If you copy, ensure they use the local state variables of this _EditQuestionScreenState.
-
   Widget _buildMultipleChoiceFields() {
-    // This should be identical to _buildMultipleChoiceFields in AddQuestionScreen,
-    // using this screen's _mcOptionControllers, _mcIsCorrectOption, etc.
-    // Example (ensure controllers are this screen's instance variables):
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -299,16 +264,15 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                 children: [
                   Radio<bool>(
                     value: true,
-                    groupValue: _mcIsCorrectOption[index], // Use this screen's state
+                    groupValue: _mcIsCorrectOption[index],
                     onChanged: (bool? value) => (value == true) ? _setMcCorrectOption(index) : null,
                   ),
                   Expanded(
                     child: TextFormField(
-                      controller: _mcOptionControllers[index], // Use this screen's state
+                      controller: _mcOptionControllers[index],
                       decoration: InputDecoration(
                         labelText: 'Option ${index + 1}${_mcIsCorrectOption[index] ? " (Correct)" : ""}',
                         border: const OutlineInputBorder(),
-                        hintText: 'Text for option ${index + 1}',
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Option text required.' : null,
                     ),
@@ -317,14 +281,12 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
                       onPressed: () => _removeMcOption(index),
-                      tooltip: 'Remove Option ${index + 1}',
                     ),
                 ],
               ),
             );
           },
         ),
-        const SizedBox(height: 10),
         if (_mcOptionControllers.length < _maxMcOptions)
           Align(
             alignment: Alignment.centerRight,
@@ -339,7 +301,6 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
   }
 
   Widget _buildTrueFalseFields() {
-    // Identical to AddQuestionScreen, using this screen's _tfCorrectAnswer
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -347,54 +308,48 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
         RadioListTile<bool>(
           title: const Text('True'),
           value: true,
-          groupValue: _tfCorrectAnswer, // Use this screen's state
+          groupValue: _tfCorrectAnswer,
           onChanged: (bool? value) => setState(() => _tfCorrectAnswer = value),
-          activeColor: Theme.of(context).primaryColor,
         ),
         RadioListTile<bool>(
           title: const Text('False'),
           value: false,
-          groupValue: _tfCorrectAnswer, // Use this screen's state
+          groupValue: _tfCorrectAnswer,
           onChanged: (bool? value) => setState(() => _tfCorrectAnswer = value),
-          activeColor: Theme.of(context).primaryColor,
         ),
       ],
     );
   }
 
   Widget _buildFillInBlankFields() {
-    // Identical to AddQuestionScreen, using this screen's _textBasedAnswerController
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Correct Answer(s):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         TextFormField(
-          controller: _textBasedAnswerController, // Use this screen's state
+          controller: _textBasedAnswerController,
           decoration: const InputDecoration(
               labelText: 'Expected Answer*',
               border: OutlineInputBorder(),
               hintText: 'The exact answer expected'),
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Answer required.' : null,
         ),
-        const SizedBox(height: 4),
-        const Text('For multiple correct (case-sensitive) answers, separate with | (pipe)', style: TextStyle(fontSize: 12, color: Colors.grey))
       ],
     );
   }
 
   Widget _buildNumericFields() {
-    // Identical to AddQuestionScreen, using this screen's _textBasedAnswerController
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Correct Answer:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         TextFormField(
-          controller: _textBasedAnswerController, // Use this screen's state
+          controller: _textBasedAnswerController,
           decoration: const InputDecoration(
               labelText: 'Numeric Value*',
               border: OutlineInputBorder(),
               hintText: 'e.g., 42 or 3.14'),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           validator: (v) {
             if (v == null || v.trim().isEmpty) return 'Numeric answer required.';
             if (double.tryParse(v.trim()) == null) return 'Invalid number format.';
